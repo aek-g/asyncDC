@@ -1,0 +1,10 @@
+.idea/
+cmake-build-*/
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+CMakeFiles/
+CMakeCache.txt
