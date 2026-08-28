@@ -32,7 +32,7 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef uart;
 
 /* USER CODE BEGIN Private defines */
 

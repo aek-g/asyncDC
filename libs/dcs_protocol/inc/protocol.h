@@ -46,6 +46,9 @@ namespace protocol {
         // Error codes
         ERR_CHECKSUM,
         ERR_INVALID_CMD,
+        ERR_ARM_REJECTED,
+        ERR_GOTO_REJECTED,
+        ERR_LAND_REJECTED,
         ERR_GEOFENCE,
         ERR_SYS_UART,
         ERR_SYS_RTOS,

@@ -9,6 +9,10 @@ namespace drone {
         if (state != DroneState::DISARMED) {
             return RCode::ERR_INVALID;
         }
+        // Check if drone is outside of geofence (no arming)
+        if (position.X > geofence.maxX || position.X  < geofence.minX || position.Y > geofence.maxY || position.Y < geofence.minY) {
+            return RCode::ERR_GEOFENCE;
+        }
         // State to ARMING and target alt to 20m
         state = DroneState::ARMING;
         target.alt = 20.0f;
