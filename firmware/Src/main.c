@@ -172,6 +172,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     CommTask_OnByte();
   }
 }
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART2) {
+    CommTask_OnUartError();
+  }
+}
 /* USER CODE END 4 */
 
 /**

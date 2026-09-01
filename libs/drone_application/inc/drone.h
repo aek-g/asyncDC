@@ -1,6 +1,7 @@
 #ifndef ASYNCDC_DRONE_H
 #define ASYNCDC_DRONE_H
 #include <cstdint>
+#include "geofence.h"
 
 // Namespace for use protection in larger scopes
 namespace drone {
@@ -53,7 +54,7 @@ namespace drone {
         void update(float deltaSeconds);
 
         // Constructor with default geofence
-        explicit DroneController(Geofence geofence = Geofence{-100, 100, -100, 100});
+        explicit DroneController(Geofence geofence = Geofence{config::MIN_X, config::MAX_X, config::MIN_Y, config::MAX_Y});
     };
 
 }

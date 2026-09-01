@@ -12,6 +12,7 @@ void ControlTask_Run(void);
 void CommTask_Run(void);
 void BtnLand(void);
 void CommTask_OnByte(void);
+void CommTask_OnUartError(void);
 #ifdef __cplusplus
 }
 #endif

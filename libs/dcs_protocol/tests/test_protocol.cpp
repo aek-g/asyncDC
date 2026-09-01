@@ -4,7 +4,7 @@
 
 using namespace protocol;
 
-// CHECKSUM
+// Checksum
 
 // Test for empty payload ARM/LAND = type byte
 TEST(CheckSum_Test, EmptyToType) {
@@ -22,13 +22,12 @@ TEST(CheckSum_Test, ArmVsLand) {
 }
 // Compare checksum calculated on known byte values with preknown XOR value
 TEST(CheckSum_Test, PayloadComparison) {
-    // type = 0x02 (GOTO_CMD), payload = {0x0F, 0xF0}
-    // 0x02 ^ 0x0F = 0x0D ; 0x0D ^ 0xF0 = 0xDD
     std::byte payload[2] = { std::byte{0x0F}, std::byte{0xF0} };
     uint8_t result = checkSum(MsgType::GOTO_CMD, payload, 2);
     EXPECT_EQ(result, 0xFD);
 }
 
+// Different payloads give different checksums
 TEST(ChecksumTest, DifferentPayloads) {
     std::byte payloadA[2] = { std::byte{0x11}, std::byte{0x22} };
     std::byte payloadB[2] = { std::byte{0x33}, std::byte{0x44} };
@@ -37,8 +36,9 @@ TEST(ChecksumTest, DifferentPayloads) {
     EXPECT_NE(resultA, resultB);
 }
 
-// ARM
+// Encode tests
 
+// Encode arm produces correct frame
 TEST(EncodeArmTest, ProducesCorrectFrame) {
     Frame fr = encodeArm();
     ASSERT_EQ(fr.size, 3u);
@@ -46,8 +46,8 @@ TEST(EncodeArmTest, ProducesCorrectFrame) {
     EXPECT_EQ(fr.frame[1], static_cast<std::byte>(MsgType::ARM_CMD));
     EXPECT_EQ(fr.frame[2], static_cast<std::byte>(checkSum(MsgType::ARM_CMD, nullptr, 0)));
 }
-// LAND
 
+// Encode land produces correct frame
 TEST(EncodeLandTest, ProducesCorrectFrame) {
     Frame fr = encodeLand();
     ASSERT_EQ(fr.size, 3u);
@@ -56,9 +56,8 @@ TEST(EncodeLandTest, ProducesCorrectFrame) {
     EXPECT_EQ(fr.frame[2], static_cast<std::byte>(checkSum(MsgType::LAND_CMD, nullptr, 0)));
 }
 
-// Encode GoTo
-
-TEST(EncodeGoToTest, ProducesCorrectFrameForPositiveValues) {
+// Encode GoTo produces correct frame for positive values
+TEST(EncodeGoToTest, PositiveValues) {
     GotoPL pl{12.5f, 7.25f};
     Frame fr = encodeGoTo(pl);
 
@@ -75,18 +74,26 @@ TEST(EncodeGoToTest, ProducesCorrectFrameForPositiveValues) {
     EXPECT_EQ(fr.frame[10], static_cast<std::byte>(checkSum(MsgType::GOTO_CMD, &fr.frame[2], 8)));
 }
 
-TEST(EncodeGoToTest, HandlesNegativeValues) {
+// Encode GoTo produces correct frame for negative values
+TEST(EncodeGoToTest, NegativeValues) {
     GotoPL pl{-42.75f, -0.5f};
     Frame fr = encodeGoTo(pl);
+
+    ASSERT_EQ(fr.size, 11u);
+    EXPECT_EQ(fr.frame[0], START_BYTE);
+    EXPECT_EQ(fr.frame[1], static_cast<std::byte>(MsgType::GOTO_CMD));
 
     float decodedX, decodedY;
     std::memcpy(&decodedX, &fr.frame[2], 4);
     std::memcpy(&decodedY, &fr.frame[6], 4);
     EXPECT_FLOAT_EQ(decodedX, -42.75f);
     EXPECT_FLOAT_EQ(decodedY, -0.5f);
+
+    EXPECT_EQ(fr.frame[10], static_cast<std::byte>(checkSum(MsgType::GOTO_CMD, &fr.frame[2], 8)));
 }
 
-TEST(EncodeGoToTest, HandlesZeroValues) {
+// Encode GoTo can handle zero values
+TEST(EncodeGoToTest, ZeroValues) {
     GotoPL pl{0.0f, 0.0f};
     Frame fr = encodeGoTo(pl);
 
@@ -97,9 +104,8 @@ TEST(EncodeGoToTest, HandlesZeroValues) {
     EXPECT_FLOAT_EQ(decodedY, 0.0f);
 }
 
-// Encode telemetry
-
-TEST(EncodeTelemetryTest, ProducesCorrectFrameWhenArmed) {
+// Encode telemetry produces correct frame when armed
+TEST(EncodeTelemetryTest, WhenArmed) {
     TelemetryPL pl{100.0f, -25.5f, 20.0f, 1};
     Frame fr = encodeTelemetry(pl);
 
@@ -119,15 +125,15 @@ TEST(EncodeTelemetryTest, ProducesCorrectFrameWhenArmed) {
     EXPECT_EQ(fr.frame[15], static_cast<std::byte>(checkSum(MsgType::TELEMETRY, &fr.frame[2], 13)));
 }
 
-TEST(EncodeTelemetryTest, ProducesCorrectFrameWhenDisarmed) {
+// Encode telemetry produces correct frame when disarmed
+TEST(EncodeTelemetryTest, WhenDisarmed) {
     TelemetryPL pl{0.0f, 0.0f, 0.0f, 0};
     Frame fr = encodeTelemetry(pl);
     EXPECT_EQ(fr.frame[14], static_cast<std::byte>(0));
 }
 
-// Encode Log
-
-TEST(EncodeLogTest, StateChangeLogHasZeroDetail) {
+// Encode ST log has 0 detail
+TEST(EncodeLogTest, StateZeroDetail) {
     LogPL pl{LogCode::ST_IDLE, 0};
     Frame fr = encodeLog(pl);
 
@@ -139,7 +145,8 @@ TEST(EncodeLogTest, StateChangeLogHasZeroDetail) {
     EXPECT_EQ(fr.frame[4], static_cast<std::byte>(checkSum(MsgType::LOG, &fr.frame[2], 2)));
 }
 
-TEST(EncodeLogTest, SystemErrorLogCarriesDetail) {
+// Encode system error log has detail
+TEST(EncodeLogTest, SystemErrorDetail) {
     LogPL pl{LogCode::ERR_SYS_UART, 3};
     Frame fr = encodeLog(pl);
 
@@ -149,7 +156,8 @@ TEST(EncodeLogTest, SystemErrorLogCarriesDetail) {
 
 // Parse frame tests
 
-TEST(ParseFrameTest, RoundTripsArmCmd) {
+// Parse arm frame
+TEST(ParseFrameTest, Arm) {
     Frame fr = encodeArm();
     auto result = parseFrame(fr.frame.data(), fr.size);
     ASSERT_TRUE(result.has_value());
@@ -158,7 +166,8 @@ TEST(ParseFrameTest, RoundTripsArmCmd) {
     EXPECT_EQ(result->payload.size, 0u);
 }
 
-TEST(ParseFrameTest, RoundTripsLandCmd) {
+// Parse land frame
+TEST(ParseFrameTest, Land) {
     Frame fr = encodeLand();
     auto result = parseFrame(fr.frame.data(), fr.size);
     ASSERT_TRUE(result.has_value());
@@ -166,7 +175,8 @@ TEST(ParseFrameTest, RoundTripsLandCmd) {
     EXPECT_EQ(result->bytes_read, 3u);
 }
 
-TEST(ParseFrameTest, RoundTripsGoToCmd) {
+// Parse GoTo frame
+TEST(ParseFrameTest, GoTo) {
     GotoPL original{55.5f, -10.25f};
     Frame fr = encodeGoTo(original);
     auto result = parseFrame(fr.frame.data(), fr.size);
@@ -181,7 +191,8 @@ TEST(ParseFrameTest, RoundTripsGoToCmd) {
     EXPECT_FLOAT_EQ(decoded.Y, original.Y);
 }
 
-TEST(ParseFrameTest, RoundTripsTelemetry) {
+// Parse telemetry frame
+TEST(ParseFrameTest, Telemetry) {
     TelemetryPL original{1.0f, 2.0f, 20.0f, 1};
     Frame fr = encodeTelemetry(original);
     auto result = parseFrame(fr.frame.data(), fr.size);
@@ -198,7 +209,8 @@ TEST(ParseFrameTest, RoundTripsTelemetry) {
     EXPECT_EQ(decoded.armed, original.armed);
 }
 
-TEST(ParseFrameTest, RoundTripsLog) {
+// Parse log frame
+TEST(ParseFrameTest, Log) {
     LogPL original{LogCode::ERR_GEOFENCE, 0};
     Frame fr = encodeLog(original);
     auto result = parseFrame(fr.frame.data(), fr.size);
@@ -212,40 +224,108 @@ TEST(ParseFrameTest, RoundTripsLog) {
     EXPECT_EQ(decoded.detail, original.detail);
 }
 
-TEST(ParseFrameTest, RejectsBufferShorterThanMinimumFrame) {
+// Rejects buffer that is shorter than any frame
+TEST(ParseFrameTest, RejectsShortBuffer) {
     std::byte buffer[2] = { START_BYTE, static_cast<std::byte>(MsgType::ARM_CMD) };
     auto result = parseFrame(buffer, 2);
     EXPECT_FALSE(result.has_value());
 }
 
+// Rejects empty buffer
 TEST(ParseFrameTest, RejectsEmptyBuffer) {
     auto result = parseFrame(nullptr, 0);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(ParseFrameTest, RejectsTruncatedPayloadMessage) {
+// Rejects truncated GoTo message
+TEST(ParseFrameTest, RejectsTruncatedGoTo) {
     GotoPL pl{1.0f, 2.0f};
     Frame fr = encodeGoTo(pl);
     auto result = parseFrame(fr.frame.data(), 6);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(ParseFrameTest, RejectsWrongStartByte) {
+// Rejects truncated Telemetry buffer
+TEST(ParseFrameTest, RejectsTruncatedTelemetry) {
+    std::byte buffer[5] = {
+        START_BYTE, static_cast<std::byte>(MsgType::TELEMETRY),
+        std::byte{0}, std::byte{0}, std::byte{0}
+    };
+    auto result = parseFrame(buffer, 5);
+    EXPECT_FALSE(result.has_value());
+}
+
+// Rejects truncated Log buffer
+TEST(ParseFrameTest, RejectsTruncatedLog) {
+    std::byte buffer[4] = {
+        START_BYTE, static_cast<std::byte>(MsgType::LOG),
+        std::byte{0}, std::byte{0}
+    };
+    auto result = parseFrame(buffer, 4);
+    EXPECT_FALSE(result.has_value());
+}
+
+// Rejects no start byte
+TEST(ParseFrameTest, WrongStartByte) {
     Frame fr = encodeArm();
     fr.frame[0] = std::byte{0x00};
     auto result = parseFrame(fr.frame.data(), fr.size);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(ParseFrameTest, RejectsCorruptedChecksum) {
+// Rejects corrupted GoTo checksum
+TEST(ParseFrameTest, CorruptedGoTo) {
     GotoPL pl{10.0f, 20.0f};
     Frame fr = encodeGoTo(pl);
     fr.frame[2] ^= std::byte{0x01};
     auto result = parseFrame(fr.frame.data(), fr.size);
-    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.value().type, MsgType::UNSET);
 }
 
-TEST(ParseFrameTest, RejectsUnknownMessageType) {
+// Rejects corrupted Arm checksum
+TEST(ParseFrameTest, CorruptedArm) {
+    Frame fr = encodeArm();
+    fr.frame[2] ^= std::byte{0x01};
+    auto result = parseFrame(fr.frame.data(), fr.size);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->type, MsgType::UNSET);
+    EXPECT_EQ(result->bytes_read, 3u);
+}
+
+// Rejects corrupted Land checksum
+TEST(ParseFrameTest, CorruptedLand) {
+    Frame fr = encodeLand();
+    fr.frame[2] ^= std::byte{0x01};
+    auto result = parseFrame(fr.frame.data(), fr.size);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->type, MsgType::UNSET);
+    EXPECT_EQ(result->bytes_read, 3u);
+}
+
+// Rejects corrupted Telemetry checksum
+TEST(ParseFrameTest, CorruptedTelemetry) {
+    TelemetryPL pl{1.0f, 2.0f, 20.0f, 1};
+    Frame fr = encodeTelemetry(pl);
+    fr.frame[15] ^= std::byte{0x01};
+    auto result = parseFrame(fr.frame.data(), fr.size);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->type, MsgType::UNSET);
+    EXPECT_EQ(result->bytes_read, 16u);
+}
+
+// Rejects corrupted Log checksum
+TEST(ParseFrameTest, CorruptedLog) {
+    LogPL pl{LogCode::ST_IDLE, 0};
+    Frame fr = encodeLog(pl);
+    fr.frame[4] ^= std::byte{0x01};
+    auto result = parseFrame(fr.frame.data(), fr.size);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->type, MsgType::UNSET);
+    EXPECT_EQ(result->bytes_read, 5u);
+}
+
+// Rejects unknown message type
+TEST(ParseFrameTest, UnknownMessageType) {
     std::byte buffer[3] = {
         START_BYTE,
         std::byte{0xFE},
@@ -255,7 +335,8 @@ TEST(ParseFrameTest, RejectsUnknownMessageType) {
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(ParseFrameTest, IgnoresTrailingBytesAndReportsCorrectBytesRead) {
+// Ignores trailing bytes and reports read bytes correctly
+TEST(ParseFrameTest, IgnoresTrailing) {
     Frame fr = encodeArm();
     std::byte buffer[6];
     std::memcpy(buffer, fr.frame.data(), fr.size);
@@ -270,7 +351,9 @@ TEST(ParseFrameTest, IgnoresTrailingBytesAndReportsCorrectBytesRead) {
 }
 
 // Decode
-TEST(DecodeGotoTest, DecodesHandBuiltPayload) {
+
+// Decodes manual goto payload
+TEST(DecodeGotoTest, DecodesPayload) {
     PayloadRaw raw;
     float x = -3.5f, y = 99.0f;
     std::memcpy(&raw.payload[0], &x, 4);
@@ -282,7 +365,8 @@ TEST(DecodeGotoTest, DecodesHandBuiltPayload) {
     EXPECT_FLOAT_EQ(pl.Y, 99.0f);
 }
 
-TEST(DecodeTelemetryTest, DecodesHandBuiltPayload) {
+// Decodes manual telemetry payload
+TEST(DecodeTelemetryTest, DecodesPayload) {
     PayloadRaw raw;
     float x = 1.5f, y = -2.5f, alt = 20.0f;
     std::memcpy(&raw.payload[0], &x, 4);
@@ -298,7 +382,8 @@ TEST(DecodeTelemetryTest, DecodesHandBuiltPayload) {
     EXPECT_EQ(pl.armed, 1);
 }
 
-TEST(DecodeLogTest, DecodesHandBuiltPayload) {
+// Decodes manual log payload
+TEST(DecodeLogTest, DecodesPayload) {
     PayloadRaw raw;
     raw.payload[0] = static_cast<std::byte>(LogCode::CMD_GOTO);
     raw.payload[1] = std::byte{0};
@@ -311,7 +396,8 @@ TEST(DecodeLogTest, DecodesHandBuiltPayload) {
 
 // Encode to Decode
 
-TEST(EncodeDecodeConsistencyTest, GoToSurvivesRoundTrip) {
+// GoTo payload correctly encoded and decoded
+TEST(EncodeDecodeTest, GoTo) {
     GotoPL original{123.456f, -78.9f};
     Frame fr = encodeGoTo(original);
 
@@ -324,7 +410,8 @@ TEST(EncodeDecodeConsistencyTest, GoToSurvivesRoundTrip) {
     EXPECT_FLOAT_EQ(decoded.Y, original.Y);
 }
 
-TEST(EncodeDecodeConsistencyTest, TelemetrySurvivesRoundTrip) {
+// Telemetry payload correctly encoded and decoded
+TEST(EncodeDecodeTest, Telemetry) {
     TelemetryPL original{-5.0f, 5.0f, 20.0f, 1};
     Frame fr = encodeTelemetry(original);
 
@@ -339,7 +426,8 @@ TEST(EncodeDecodeConsistencyTest, TelemetrySurvivesRoundTrip) {
     EXPECT_EQ(decoded.armed, original.armed);
 }
 
-TEST(EncodeDecodeConsistencyTest, LogSurvivesRoundTrip) {
+// Log payload correctly encoded and decoded
+TEST(EncodeDecodeTest, Log) {
     LogPL original{LogCode::ERR_CHECKSUM, 0};
     Frame fr = encodeLog(original);
 

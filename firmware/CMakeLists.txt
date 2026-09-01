@@ -61,6 +61,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
         ${CMAKE_SOURCE_DIR}/../libs/dcs_protocol/inc
         ${CMAKE_SOURCE_DIR}/../libs/drone_application/inc
+        ${CMAKE_SOURCE_DIR}/../libs/config/inc
 )
 
 # Add project symbols (macros)

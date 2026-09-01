@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "dcs_type.h"
+#include "tasks.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,7 +55,7 @@ osThreadId_t controlTaskHandle;
 const osThreadAttr_t controlTask_attributes = {
   .name = "controlTask",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for commTask */
 osThreadId_t commTaskHandle;
@@ -85,7 +86,9 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  droneStateMutex = osMutexNew(NULL);
+  // Priority inherit not applicable currently, but future proofed (for priority changes/ additional tasks)
+  const osMutexAttr_t droneStateMutex_attr = { .name = "droneStateMutex", .attr_bits = osMutexPrioInherit };
+  droneStateMutex = osMutexNew(&droneStateMutex_attr);
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -128,11 +131,7 @@ void MX_FREERTOS_Init(void) {
 void StartControlTask(void *argument)
 {
   /* USER CODE BEGIN StartControlTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  ControlTask_Run();
   /* USER CODE END StartControlTask */
 }
 
@@ -146,11 +145,7 @@ void StartControlTask(void *argument)
 void StartCommTask(void *argument)
 {
   /* USER CODE BEGIN StartCommTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+  CommTask_Run();
   /* USER CODE END StartCommTask */
 }
 

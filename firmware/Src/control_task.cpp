@@ -6,24 +6,26 @@
 
 namespace {
     // DroneController initiation (default constructor)
-    // Only available in this namespace, only control task can interact with it
+    // Only touched directly in this namespace
     drone::DroneController droneInstance;
     drone::DroneState prevState = droneInstance.getState();
 
-    // Logcode for command error results
+    // Blink counter for ARMING/LANDING/GOTO LED
+    uint32_t blinkCounter = 0;
+
+    // Log code for command error results
     protocol::LogCode cmdERROR(drone::RCode result, CmdType cmdType) {
         if (result == drone::RCode::ERR_GEOFENCE) {
             return protocol::LogCode::ERR_GEOFENCE;
         }
-        // result == RCode::ERR_INVALID
         switch (cmdType) {
             case CMD_ARM:  return protocol::LogCode::ERR_ARM_REJECTED;
             case CMD_GOTO: return protocol::LogCode::ERR_GOTO_REJECTED;
             case CMD_LAND: return protocol::LogCode::ERR_LAND_REJECTED;
         }
-        return protocol::LogCode::UNSET; // unreachable, but keeps compiler happy
+        return protocol::LogCode::UNSET;
     }
-    // Logcode for successful command
+    // Log code for successful command
     protocol::LogCode cmdOK(CmdType type) {
         switch (type) {
             case CMD_ARM:  return protocol::LogCode::CMD_ARM;
@@ -40,7 +42,7 @@ namespace {
     }
     // Command handle logic
     void handleCommand(const Cmd& cmd) {
-        // Result code initalized
+        // Result code initialized
         drone::RCode result;
 
         // Mutex accessed, command passed, result assigned
@@ -49,6 +51,7 @@ namespace {
             case CMD_ARM:  result = droneInstance.arm(); break;
             case CMD_GOTO: result = droneInstance.goTo(cmd.targetX, cmd.targetY); break;
             case CMD_LAND: result = droneInstance.land(); break;
+            default: result = drone::RCode::ERR_INVALID;
         }
         osMutexRelease(droneStateMutex);
 
@@ -57,6 +60,42 @@ namespace {
             pushLog(cmdOK(cmd.type));
         } else {
             pushLog(cmdERROR(result, cmd.type));
+        }
+    }
+
+    // Function for indicating state with LED
+    void updateLed(drone::DroneState current) {
+
+        GPIO_PinState ledState;
+        // If ARMING/ GOTO/ LANDING then blink rapidly
+        if (current == drone::DroneState::ARMING || current == drone::DroneState::GOTO || current == drone::DroneState::LANDING) {
+            blinkCounter++;
+            ledState = ((blinkCounter % 5) < 3) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+        } else {
+            // If DISARMED then LED off, if Idle then LED solid
+            blinkCounter = 0;
+            ledState = (current != drone::DroneState::DISARMED) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+        }
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, ledState);
+    }
+
+    // Check for state change, update LED
+    void stateChanged(drone::DroneState current) {
+        if (current != prevState) {
+
+            // Update previous state
+            prevState = current;
+
+            protocol::LogCode changeCode;
+            switch (current) {
+                case drone::DroneState::DISARMED: changeCode = protocol::LogCode::ST_DISARMED; break;
+                case drone::DroneState::ARMING:   changeCode = protocol::LogCode::ST_ARMING; break;
+                case drone::DroneState::IDLE:     changeCode = protocol::LogCode::ST_IDLE; break;
+                case drone::DroneState::GOTO:     changeCode = protocol::LogCode::ST_GOTO; break;
+                case drone::DroneState::LANDING:  changeCode = protocol::LogCode::ST_LANDING; break;
+                default: changeCode = protocol::LogCode::UNSET; break;
+            }
+            pushLog(changeCode);
         }
     }
 }
@@ -76,17 +115,9 @@ drone::DroneState ControlTask_GetState() {
     return state;
 }
 
-// LED toggle on ARMED/DISARMED state change
-static void updateLed(drone::DroneState state) {
-    if (state == prevState) return;
-    GPIO_PinState ledState = (state != drone::DroneState::DISARMED) ? GPIO_PIN_SET : GPIO_PIN_RESET;
-    HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, ledState);
-    prevState = state;
-}
-
 // Task run function
 extern "C" void ControlTask_Run(void) {
-    // Deltaseconds for update, 0.1 = 100 ticks
+    // Delta seconds for update, 0.1 = 100 ticks
     const float deltaSeconds = 0.1f;
 
     // Task for loop
@@ -96,14 +127,22 @@ extern "C" void ControlTask_Run(void) {
         if (osMessageQueueGet(cmdQueue, &cmd, nullptr, 0) == osOK) {
             handleCommand(cmd);
         }
-
-        // Acquire dronestate mutex, call update(), release mutex
+        // Acquire drone state mutex, get state
         osMutexAcquire(droneStateMutex, osWaitForever);
-        droneInstance.update(deltaSeconds);
         drone::DroneState currentState = droneInstance.getState();
         osMutexRelease(droneStateMutex);
+        // State change check and logging (for edge case where goto target is less distance than one update iteration)
+        stateChanged(currentState);
 
-        // LED check for state
+        // Acquire drone state mutex, update and get state again
+        osMutexAcquire(droneStateMutex, osWaitForever);
+        droneInstance.update(deltaSeconds);
+        currentState = droneInstance.getState();
+        osMutexRelease(droneStateMutex);
+
+        // State change check and logging after update
+        stateChanged(currentState);
+        // Update LED based on state
         updateLed(currentState);
 
         osDelay(100);

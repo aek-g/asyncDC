@@ -51,7 +51,6 @@ namespace protocol {
         ERR_LAND_REJECTED,
         ERR_GEOFENCE,
         ERR_SYS_UART,
-        ERR_SYS_RTOS,
     };
 
     // Payload for GOTO messages

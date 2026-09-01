@@ -89,7 +89,10 @@ namespace protocol {
                     result.bytes_read = 3;
                     return result;
                 }
-                break;
+                // Checksum error, discard message
+                result.type = MsgType::UNSET;
+                result.bytes_read = 3;
+                return result;
             case MsgType::LAND_CMD:
                 // Check third byte for checksum of LAND and null
                 if ( buffer[2] == static_cast<std::byte>(checkSum(MsgType::LAND_CMD, nullptr, 0))) {
@@ -97,7 +100,9 @@ namespace protocol {
                     result.bytes_read = 3;
                     return result;
                 }
-                break;
+                result.type = MsgType::UNSET;
+                result.bytes_read = 3;
+                return result;
             case MsgType::GOTO_CMD:
                 // New length check for GOTO type
                 if (bufferLen < 11) {
@@ -112,7 +117,9 @@ namespace protocol {
                     result.bytes_read = 11;
                     return result;
                 }
-                break;
+                result.type = MsgType::UNSET;
+                result.bytes_read = 11;
+                return result;
             case MsgType::TELEMETRY:
                 // New length check for Telemetry type
                 if (bufferLen < 16) {
@@ -127,7 +134,9 @@ namespace protocol {
                     result.bytes_read = 16;
                     return result;
                 }
-                break;
+                result.type = MsgType::UNSET;
+                result.bytes_read = 16;
+                return result;
             case MsgType::LOG:
                 if ( bufferLen < 5) {
                     return std::nullopt;
@@ -141,7 +150,9 @@ namespace protocol {
                     result.bytes_read = 5;
                     return result;
                 }
-                break;
+                result.type = MsgType::UNSET;
+                result.bytes_read = 5;
+                return result;
             default:
                 return std::nullopt;
         }

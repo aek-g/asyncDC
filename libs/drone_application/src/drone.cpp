@@ -1,8 +1,15 @@
 #include "drone.h"
-
 #include <cmath>
 // Namespace for use protection in larger scopes
 namespace drone {
+    // Velocity for ARM and GOTO
+    constexpr float VELOCITY = 10.0f;
+    // Velocity for landing (>3m alt)
+    // This is an exception to fixed velocity, to ensure safe landing
+    constexpr float LANDING_VELOCITY = 6.0f;
+    // Velocity for landing (<= 3m alt)
+    constexpr float LANDING_FINAL_VELOCITY = 1.0f;
+
     // Arm function
     RCode DroneController::arm() {
         // Check if drone is already armed
@@ -66,7 +73,7 @@ namespace drone {
             // ARMING - Increase elevation to target alt
             case DroneState::ARMING: {
                 // Distance travelled for deltaseconds
-                float distanceT = 10.0f * deltaSeconds;
+                float distanceT = VELOCITY * deltaSeconds;
                 // Overshoot guard
                 if (position.alt + distanceT < target.alt) {
                     position.alt += distanceT;
@@ -79,8 +86,13 @@ namespace drone {
             }
             // LANDING - Decrease elevation to target alt
             case DroneState::LANDING: {
+                // Remaining alt
+                float remaining = position.alt - target.alt;
+                // Landing speed 6m/s, if less than 3m remaining then 1m/s
+                float speed = (remaining <= 3.0f) ? LANDING_FINAL_VELOCITY : LANDING_VELOCITY;
+
                 // Distance travelled for deltaseconds
-                float distanceT = 10.0f * deltaSeconds;
+                float distanceT = speed * deltaSeconds;
                 // Overshoot guard
                 if (position.alt - distanceT > target.alt) {
                     position.alt -= distanceT;
@@ -93,7 +105,7 @@ namespace drone {
             }
             case DroneState::GOTO: {
                 // Distance travelled for deltaseconds
-                float distanceT = 10.0f * deltaSeconds;
+                float distanceT = VELOCITY * deltaSeconds;
                 // Calculating individual differences for X and Y
                 float dx = target.X - position.X;
                 float dy = target.Y - position.Y;
